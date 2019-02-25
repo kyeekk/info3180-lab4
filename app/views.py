@@ -7,6 +7,7 @@ This file creates your application.
 import os
 from app import app
 from flask import render_template, request, redirect, url_for, flash, session, abort
+from app.forms import UploadForm
 from werkzeug.utils import secure_filename
 
 
@@ -17,6 +18,7 @@ from werkzeug.utils import secure_filename
 @app.route('/')
 def home():
     """Render website's home page."""
+    get_uploaded_images()
     return render_template('home.html')
 
 
@@ -32,15 +34,30 @@ def upload():
         abort(401)
 
     # Instantiate your form class
+    form = UploadForm()
 
     # Validate file upload on submit
-    if request.method == 'POST':
+    if request.method == 'POST' and form.validate_on_submit():
         # Get file data and save to your uploads folder
+        photo = form.photo.data
+
+        filename = secure_filename(photo.filename)
+        photo.save(os.path.join(
+            app.config['UPLOAD_FOLDER'], filename
+        ))
 
         flash('File Saved', 'success')
         return redirect(url_for('home'))
 
-    return render_template('upload.html')
+    flash_errors(form)
+    return render_template('upload.html', form=form)
+
+
+@app.route('/files')
+def files():
+    if not session.get('logged_in'):
+        abort(401)
+    return render_template('files.html', images=get_uploaded_images())
 
 
 @app.route('/login', methods=['POST', 'GET'])
@@ -63,7 +80,6 @@ def logout():
     flash('You were logged out', 'success')
     return redirect(url_for('home'))
 
-
 ###
 # The functions below should be applicable to all Flask apps.
 ###
@@ -72,10 +88,20 @@ def logout():
 def flash_errors(form):
     for field, errors in form.errors.items():
         for error in errors:
-            flash(u"Error in the %s field - %s" % (
-                getattr(form, field).label.text,
-                error
-), 'danger')
+            flash("Error in the {} field - {}".format(getattr(form, field).label.text, error), 'warning')
+
+
+def get_uploaded_images():
+    images = []
+
+    rootdir = app.config['UPLOAD_FOLDER']
+    for subdir, dirs, files in os.walk(rootdir):
+        files = [f for f in files if not f[0] == '.'] # remove non image files, maybe use a regex in future
+        for file in files:
+            folder = os.path.splitext(os.path.basename(subdir))[0]
+            images.append(os.path.join(folder, file))
+    return images
+
 
 @app.route('/<file_name>.txt')
 def send_text_file(file_name):
