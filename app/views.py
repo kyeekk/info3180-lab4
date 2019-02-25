@@ -30,9 +30,7 @@ def about():
 
 @app.route('/upload', methods=['POST', 'GET'])
 def upload():
-    if not session.get('logged_in'):
-        abort(401)
-
+    
     # Instantiate your form class
     form = UploadForm()
 
@@ -55,8 +53,7 @@ def upload():
 
 @app.route('/files')
 def files():
-    if not session.get('logged_in'):
-        abort(401)
+   
     return render_template('files.html', images=get_uploaded_images())
 
 
